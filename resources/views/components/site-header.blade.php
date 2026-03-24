@@ -14,7 +14,7 @@
                     </a>
                 @else
                     <a href="{{ route('login') }}" class="rounded-lg bg-secondary px-5 py-2 text-sm font-semibold text-secondary-foreground transition-all hover:brightness-110">
-                        Sign In
+                        Sign In 
                     </a>
                 @endauth
             @endif
