@@ -45,7 +45,7 @@ class BusinessController extends Controller
         $business = Business::create($data);
 
         return redirect()
-            ->route('businesses.show', $business)
+            ->route('business.detail', $business)
             ->with('status', 'Business submitted successfully.');
     }
 
@@ -54,7 +54,26 @@ class BusinessController extends Controller
      */
     public function show(Business $business)
     {
-        return view('business.show', compact('business'));
+        $business->loadMissing(['category', 'service']);
+
+        $reviews = $business->reviews()
+            ->with('user')
+            ->withCount([
+                'votes as like_count' => fn ($query) => $query->where('vote', 1),
+                'votes as dislike_count' => fn ($query) => $query->where('vote', -1),
+            ])
+            ->latest()
+            ->get();
+
+        $reviewCount = $reviews->count();
+        $avgRating = $reviewCount > 0 ? round((float) $reviews->avg('rating'), 1) : 0;
+
+        $ratingBreakdown = collect([5, 4, 3, 2, 1])
+            ->map(fn (int $stars) => $reviews->where('rating', $stars)->count())
+            ->values()
+            ->all();
+
+        return view('business.show', compact('business', 'reviews', 'avgRating', 'reviewCount', 'ratingBreakdown'));
     }
 
     /**
@@ -80,7 +99,7 @@ class BusinessController extends Controller
         $business->update($data);
 
         return redirect()
-            ->route('businesses.show', $business)
+            ->route('business.detail', $business)
             ->with('status', 'Business updated successfully.');
     }
 

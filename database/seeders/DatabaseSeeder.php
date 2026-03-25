@@ -22,19 +22,26 @@ class DatabaseSeeder extends Seeder
             CountriesSeeder::class,
             StatesSeeder::class,
             CitiesSeeder::class,
+            \Database\Seeders\IndustriesSeeder::class,
+            \Database\Seeders\CategoriesSeeder::class,
+            \Database\Seeders\ServicesSeeder::class,
+            \Database\Seeders\BusinessSeeder::class,
         ]);
 
         $adminRoleId = DB::table('user_roles')
             ->where('slug', 'administrator')
             ->value('id');
 
-        // User::factory(10)->create();
+        $email = 'test@example.com';
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-            'password' => Hash::make('Test@123'),
-            'role_id' => $adminRoleId,
-        ]);
+        if (! DB::table('users')->where('email', $email)->exists()) {
+            // User seeded only once to keep `db:seed` idempotent.
+            User::factory()->create([
+                'name' => 'Test User',
+                'email' => $email,
+                'password' => Hash::make('Test@123'),
+                'role_id' => $adminRoleId,
+            ]);
+        }
     }
 }
