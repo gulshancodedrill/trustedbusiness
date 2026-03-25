@@ -11,7 +11,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Custom middleware aliases you can use in routes.
+        $middleware->alias([
+            'logged.in' => \App\Http\Middleware\EnsureLoggedIn::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
