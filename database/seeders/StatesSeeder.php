@@ -11,14 +11,19 @@ class StatesSeeder extends Seeder
 {
     private const API_BASE = 'https://api.countrystatecity.in/v1';
 
+    private const RAPIDAPI_BASE = 'https://country-state-city-search-rest-api.p.rapidapi.com';
+
+    private const RAPIDAPI_HOST = 'country-state-city-search-rest-api.p.rapidapi.com';
+
     /**
      * Run the database seeds.
      */
     public function run(): void
     {
-        $apiKey = (string) env('CSC_API_KEY');
-        if ($apiKey === '') {
-            throw new RuntimeException('CSC_API_KEY is not set in environment.');
+        $cscKey = (string) env('CSC_API_KEY', '');
+        $rapidKey = (string) (env('RAPIDAPI_KEY') ?: env('RapidAPI_Key', ''));
+        if ($cscKey === '' && $rapidKey === '') {
+            throw new RuntimeException('Set CSC_API_KEY and/or RAPIDAPI_KEY (or RapidAPI_Key) in .env.');
         }
 
         $countries = DB::table('countries')
@@ -36,23 +41,47 @@ class StatesSeeder extends Seeder
             )->values();
         }
 
-        $rows = [];
-        foreach ($countries as $country) {
-            $response = Http::timeout(60)
-                ->retry(3, 500, null, false)
-                ->withHeaders(['X-CSCAPI-KEY' => $apiKey])
-                ->get(self::API_BASE.'/countries/'.strtoupper((string) $country->iso2).'/states');
+        // Skip API calls for countries that already have states (saves CSC/RapidAPI quota).
+        $countryIdsWithStates = array_flip(
+            DB::table('states')->distinct()->pluck('country_id')->all()
+        );
 
-            if (! $response->successful()) {
-                if ($response->status() === 429 && $this->command) {
-                    $this->command->warn('CSC API daily limit reached while fetching states. Seeded partial data.');
-                    break;
-                }
+        $rows = [];
+        $cscQuotaExhausted = false;
+        foreach ($countries as $country) {
+            if (isset($countryIdsWithStates[$country->id])) {
                 continue;
             }
 
-            foreach ($response->json() as $state) {
-                $stateCode = strtoupper((string) ($state['iso2'] ?? $state['state_code'] ?? ''));
+            $iso2 = strtoupper((string) $country->iso2);
+            $statesPayload = null;
+
+            if ($cscKey !== '' && ! $cscQuotaExhausted) {
+                $response = Http::timeout(60)
+                    ->retry(3, 500, null, false)
+                    ->withHeaders(['X-CSCAPI-KEY' => $cscKey])
+                    ->get(self::API_BASE.'/countries/'.$iso2.'/states');
+
+                if ($response->successful()) {
+                    $statesPayload = $response->json();
+                } elseif ($response->status() === 429) {
+                    $cscQuotaExhausted = true;
+                    if ($this->command) {
+                        $this->command->warn('CSC API daily limit reached while fetching states. Falling back to RapidAPI when configured.');
+                    }
+                }
+            }
+
+            if ($statesPayload === null && $rapidKey !== '') {
+                $statesPayload = $this->fetchStatesFromRapidApi($rapidKey, strtolower($iso2));
+            }
+
+            if (! is_array($statesPayload)) {
+                continue;
+            }
+
+            foreach ($statesPayload as $state) {
+                $stateCode = strtoupper((string) ($state['iso2'] ?? $state['state_code'] ?? $state['isoCode'] ?? ''));
                 $fallbackExternalId = sprintf('%u', crc32('state:'.$country->iso2.':'.$stateCode.':'.($state['name'] ?? '')));
                 $rows[] = [
                     'external_id' => (int) ($state['id'] ?? $fallbackExternalId),
@@ -74,4 +103,36 @@ class StatesSeeder extends Seeder
         }
     }
 
+    /**
+     * @return array<int, array<string, mixed>>|null
+     */
+    private function fetchStatesFromRapidApi(string $rapidApiKey, string $countryCodeLower): ?array
+    {
+        $response = Http::timeout(60)
+            ->retry(2, 500, null, false)
+            ->withHeaders([
+                'Content-Type' => 'application/json',
+                'x-rapidapi-host' => self::RAPIDAPI_HOST,
+                'x-rapidapi-key' => $rapidApiKey,
+            ])
+            ->get(self::RAPIDAPI_BASE.'/states-by-countrycode', [
+                'countrycode' => $countryCodeLower,
+            ]);
+
+        if (! $response->successful()) {
+            return null;
+        }
+
+        $json = $response->json();
+        if (! is_array($json)) {
+            return null;
+        }
+
+        return array_map(function (array $row): array {
+            return [
+                'name' => $row['name'] ?? '',
+                'iso2' => $row['isoCode'] ?? $row['iso2'] ?? '',
+            ];
+        }, $json);
+    }
 }
