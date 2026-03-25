@@ -2,9 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class CategoriesSeeder extends Seeder
 {
@@ -13,56 +12,75 @@ class CategoriesSeeder extends Seeder
      */
     public function run(): void
     {
+        if (DB::table('categories')->exists() && DB::table('categories')->count() > 0) {
+            return;
+        }
+
+        $industries = DB::table('industries')->get(['id', 'name']);
+        if ($industries->isEmpty()) {
+            // IndustriesSeeder should run before this.
+            if ($this->command) {
+                $this->command->warn('No industries found. Skipping dummy categories seeding.');
+            }
+            return;
+        }
+
+        $industryIdByName = $industries->pluck('id', 'name')->mapWithKeys(
+            fn ($id, $name) => [strtolower((string) $name) => $id]
+        );
+
         $now = now();
 
         $categories = [
-            [
-                'industry' => 'Electronics Repair',
-                'name' => 'Phone Repair',
-                'description' => 'Screen repair, battery replacement, and diagnostics.',
-            ],
-            [
-                'industry' => 'Electronics Repair',
-                'name' => 'Laptop Repair',
-                'description' => 'Hardware fixes, keyboard replacement, and performance tune-ups.',
-            ],
-            [
-                'industry' => 'Healthcare',
-                'name' => 'Dental Care',
-                'description' => 'Cleaning, checkups, and dental treatments.',
-            ],
-            [
-                'industry' => 'Landscaping',
-                'name' => 'Lawn Maintenance',
-                'description' => 'Mowing, trimming, and seasonal yard care.',
-            ],
+            // Technology
+            ['industry' => 'Technology', 'name' => 'Software Development', 'description' => 'Custom software and app development.'],
+            ['industry' => 'Technology', 'name' => 'IT Services', 'description' => 'Managed IT support, networks, and related services.'],
+
+            // Food & Restaurants
+            ['industry' => 'Food & Restaurants', 'name' => 'Restaurants', 'description' => 'Restaurants, dining, and related food service operations.'],
+            ['industry' => 'Food & Restaurants', 'name' => 'Cafes', 'description' => 'Cafes and coffee shops.'],
+
+            // Healthcare
+            ['industry' => 'Healthcare', 'name' => 'Dental Care', 'description' => 'Dental clinics and services.'],
+            ['industry' => 'Healthcare', 'name' => 'Physiotherapy', 'description' => 'Physiotherapy and rehabilitation services.'],
+
+            // Home Services
+            ['industry' => 'Home Services', 'name' => 'Plumbing', 'description' => 'Plumbing repair and installation services.'],
+            ['industry' => 'Home Services', 'name' => 'Electrical', 'description' => 'Electrical repair, wiring, and installation services.'],
+
+            // Education
+            ['industry' => 'Education', 'name' => 'Tutoring', 'description' => 'Academic tutoring and coaching services.'],
+            ['industry' => 'Education', 'name' => 'Language Schools', 'description' => 'Language training programs and classes.'],
         ];
 
-        foreach ($categories as $category) {
-            $industryId = DB::table('industries')
-                ->where('name', $category['industry'])
-                ->value('id');
-
-            if (! $industryId) {
+        $rows = [];
+        foreach ($categories as $cat) {
+            $industryKey = strtolower((string) $cat['industry']);
+            if (! isset($industryIdByName[$industryKey])) {
                 continue;
             }
 
-            $exists = DB::table('categories')
-                ->where('industry_id', $industryId)
-                ->where('name', $category['name'])
-                ->exists();
-
-            if ($exists) {
-                continue;
-            }
-
-            DB::table('categories')->insert([
-                'industry_id' => $industryId,
-                'name' => $category['name'],
-                'description' => $category['description'],
+            $rows[] = [
+                'industry_id' => $industryIdByName[$industryKey],
+                'name' => (string) $cat['name'],
+                'description' => $cat['description'] ? (string) $cat['description'] : null,
                 'created_at' => $now,
                 'updated_at' => $now,
-            ]);
+            ];
+        }
+
+        if ($rows === []) {
+            if ($this->command) {
+                $this->command->warn('No dummy categories could be created (missing industries?).');
+            }
+            return;
+        }
+
+        DB::table('categories')->insert($rows);
+
+        if ($this->command) {
+            $this->command->info('Seeded dummy categories.');
         }
     }
 }
+

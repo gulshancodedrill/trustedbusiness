@@ -5,26 +5,38 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use RuntimeException;
 
 class StatesSeeder extends Seeder
 {
     private const API_BASE = 'https://api.countrystatecity.in/v1';
 
-    private const RAPIDAPI_BASE = 'https://country-state-city-search-rest-api.p.rapidapi.com';
-
-    private const RAPIDAPI_HOST = 'country-state-city-search-rest-api.p.rapidapi.com';
+    private const DUMMY_STATES = [
+        'US' => [
+            ['iso2' => 'CA', 'name' => 'California'],
+            ['iso2' => 'NY', 'name' => 'New York'],
+        ],
+        'CA' => [
+            ['iso2' => 'ON', 'name' => 'Ontario'],
+            ['iso2' => 'BC', 'name' => 'British Columbia'],
+        ],
+        'IN' => [
+            ['iso2' => 'MH', 'name' => 'Maharashtra'],
+            ['iso2' => 'DL', 'name' => 'Delhi'],
+        ],
+        'AE' => [
+            ['iso2' => 'DU', 'name' => 'Dubai'],
+            ['iso2' => 'SH', 'name' => 'Sharjah'],
+        ],
+    ];
 
     /**
      * Run the database seeds.
      */
     public function run(): void
     {
-        $cscKey = (string) env('CSC_API_KEY', '');
-        $rapidKey = (string) (env('RAPIDAPI_KEY') ?: env('RapidAPI_Key', ''));
-        if ($cscKey === '' && $rapidKey === '') {
-            throw new RuntimeException('Set CSC_API_KEY and/or RAPIDAPI_KEY (or RapidAPI_Key) in .env.');
-        }
+        // Always seed deterministic dummy data (no external API).
+        $this->seedDummyStates();
+        return;
 
         $countries = DB::table('countries')
             ->select('id', 'iso2')
@@ -100,6 +112,68 @@ class StatesSeeder extends Seeder
                 ['external_id'],
                 ['country_id', 'name', 'iso2', 'updated_at']
             );
+        }
+
+        if ($rows === [] && DB::table('states')->count() === 0) {
+            // If the CSC API failed and produced no rows, make sure we still have dummy data.
+            $this->seedDummyStates();
+        }
+    }
+
+    private function seedDummyStates(): void
+    {
+        $countries = DB::table('countries')
+            ->select('id', 'iso2')
+            ->whereNotNull('iso2')
+            ->get();
+
+        if ($countries->isEmpty()) {
+            // CountriesSeeder should run before StatesSeeder, but keep this safe.
+            return;
+        }
+
+        $countriesByIso2 = $countries->keyBy(fn ($c) => strtoupper((string) $c->iso2));
+
+        $rows = [];
+        foreach (self::DUMMY_STATES as $countryIso2 => $states) {
+            $countryIso2 = strtoupper($countryIso2);
+
+            if (! $countriesByIso2->has($countryIso2)) {
+                continue;
+            }
+
+            $countryId = $countriesByIso2[$countryIso2]->id;
+            foreach ($states as $state) {
+                $stateIso2 = strtoupper((string) $state['iso2']);
+                $stateName = (string) $state['name'];
+                $rows[] = [
+                    'external_id' => (int) sprintf('%u', crc32('state:'.$countryIso2.':'.$stateIso2)),
+                    'country_id' => $countryId,
+                    'name' => $stateName,
+                    'iso2' => $stateIso2 ?: null,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+        }
+
+        if ($rows === []) {
+            if ($this->command) {
+                $this->command->warn('No dummy states matched available countries. No state records seeded.');
+            }
+            return;
+        }
+
+        foreach (array_chunk($rows, 1000) as $chunk) {
+            DB::table('states')->upsert(
+                $chunk,
+                ['external_id'],
+                ['country_id', 'name', 'iso2', 'updated_at']
+            );
+        }
+
+        if ($this->command) {
+            $this->command->info('Seeded dummy states.');
         }
     }
 

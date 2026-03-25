@@ -2,9 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class IndustriesSeeder extends Seeder
 {
@@ -13,38 +12,50 @@ class IndustriesSeeder extends Seeder
      */
     public function run(): void
     {
+        if (DB::table('industries')->exists()) {
+            return;
+        }
+
         $now = now();
 
-        $industries = [
+        $rows = [
             [
-                'name' => 'Electronics Repair',
-                'description' => 'Repairs for phones, laptops, and other electronics.',
+                'name' => 'Technology',
+                'description' => 'Software and IT related services.',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'name' => 'Food & Restaurants',
+                'description' => 'Food businesses and dining services.',
+                'created_at' => $now,
+                'updated_at' => $now,
             ],
             [
                 'name' => 'Healthcare',
-                'description' => 'Medical and health services for individuals and families.',
+                'description' => 'Medical and wellness services.',
+                'created_at' => $now,
+                'updated_at' => $now,
             ],
             [
-                'name' => 'Landscaping',
-                'description' => 'Garden and outdoor maintenance services.',
+                'name' => 'Home Services',
+                'description' => 'Repairs, installations, and home improvement services.',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            [
+                'name' => 'Education',
+                'description' => 'Learning and training providers.',
+                'created_at' => $now,
+                'updated_at' => $now,
             ],
         ];
 
-        foreach ($industries as $industry) {
-            $exists = DB::table('industries')
-                ->where('name', $industry['name'])
-                ->exists();
+        DB::table('industries')->insert($rows);
 
-            if ($exists) {
-                continue;
-            }
-
-            DB::table('industries')->insert([
-                'name' => $industry['name'],
-                'description' => $industry['description'],
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
+        if ($this->command) {
+            $this->command->info('Seeded dummy industries.');
         }
     }
 }
+

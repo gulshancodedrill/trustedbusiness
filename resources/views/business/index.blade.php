@@ -19,7 +19,7 @@
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             @forelse ($businesses as $business)
-                <a href="{{ route('businesses.show', $business) }}" class="rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:shadow-md">
+                <a href="{{ route('business.detail', $business) }}" class="rounded-2xl border border-border bg-card p-5 shadow-sm transition hover:shadow-md">
                     <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{{ $business->city }}, {{ $business->state }}</p>
                     <h2 class="mt-2 text-xl font-bold">{{ $business->business_name }}</h2>
                     <p class="mt-1 text-sm text-muted-foreground">{{ $business->business_email }}</p>
