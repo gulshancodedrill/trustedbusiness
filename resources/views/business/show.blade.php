@@ -25,7 +25,7 @@
             <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Owner</p>
-                    <p class="font-semibold">{{ $business->owner_first_name }} {{ $business->owner_last_name }}</p>
+                        <p class="font-semibold">{{ $business->contact_person ?: 'N/A' }}</p>
                 </div>
                 <div>
                     <p class="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Contact</p>

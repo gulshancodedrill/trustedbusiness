@@ -14,7 +14,7 @@
     <main class="container mx-auto px-4 pb-16 pt-28">
         <div class="mb-6 flex items-center justify-between">
             <h1 class="text-3xl font-black">Businesses</h1>
-            <a href="{{ route('businesses.create') }}" class="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">Add Business</a>
+            <a href="{{ route('businesses.add') }}" class="rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">Add Business</a>
         </div>
 
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">

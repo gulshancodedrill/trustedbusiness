@@ -16,6 +16,14 @@
 
     <main class="min-h-screen bg-gradient-to-b from-section-blue via-background to-background pb-16 pt-28">
         <div class="container mx-auto max-w-5xl px-4">
+            @php
+                $isEdit = isset($business) && $business;
+                $existingTags = $isEdit && is_array($business->tags) ? implode(', ', $business->tags) : '';
+                $oldCountryId = old('country_id', $selectedCountryId ?? null);
+                $oldStateId = old('state_id', $selectedStateId ?? null);
+                $oldCityId = old('city_id', $selectedCityId ?? null);
+            @endphp
+
             <div class="mb-6 text-center">
                 <h1 class="text-3xl font-black tracking-tight sm:text-4xl">List Your Business</h1>
                 <p class="mt-2 text-muted-foreground">Join trusted businesses and grow with real customer discovery.</p>
@@ -31,6 +39,16 @@
                     </ul>
                 </div>
             @endif
+
+            <div
+                id="locationConfig"
+                class="hidden"
+                data-states-url="{{ route('locations.states') }}"
+                data-cities-url="{{ route('locations.cities') }}"
+                data-initial-country-id="{{ $oldCountryId }}"
+                data-initial-state-id="{{ $oldStateId }}"
+                data-initial-city-id="{{ $oldCityId }}"
+            ></div>
 
             <div class="rounded-3xl border border-border/60 bg-card p-5 shadow-xl sm:p-8">
                 <div class="mb-8 grid grid-cols-3 gap-3 text-center">
@@ -48,10 +66,6 @@
                     </div>
                 </div>
 
-                @php
-                    $isEdit = isset($business) && $business;
-                    $existingTags = $isEdit && is_array($business->tags) ? implode(', ', $business->tags) : '';
-                @endphp
                 <form id="businessForm" method="POST" action="{{ $isEdit ? route('businesses.update', $business) : route('businesses.store') }}" enctype="multipart/form-data">
                     @csrf
                     @if ($isEdit)
@@ -112,15 +126,24 @@
                             </div>
                             <div>
                                 <label class="mb-1 block text-sm font-semibold">Country</label>
-                                <input name="country" value="{{ old('country', $business->country ?? '') }}" required class="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm">
+                                <select id="countrySelect" name="country_id" required class="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm">
+                                    <option value="">Select Country</option>
+                                    @foreach ($countries as $c)
+                                        <option value="{{ $c->id }}" @selected((string) $oldCountryId === (string) $c->id)>{{ $c->name }}</option>
+                                    @endforeach
+                                </select>
                             </div>
                             <div>
-                                <label class="mb-1 block text-sm font-semibold">State</label>
-                                <input name="state" value="{{ old('state', $business->state ?? '') }}" required class="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm">
+                                <label class="mb-1 block text-sm font-semibold">State / Region</label>
+                                <select id="stateSelect" name="state_id" required class="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm" @disabled(! $oldCountryId)>
+                                    <option value="">{{ $oldCountryId ? 'Select State' : 'Select country first' }}</option>
+                                </select>
                             </div>
                             <div>
                                 <label class="mb-1 block text-sm font-semibold">City</label>
-                                <input name="city" value="{{ old('city', $business->city ?? '') }}" required class="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm">
+                                <select id="citySelect" name="city_id" required class="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm" @disabled(! $oldStateId)>
+                                    <option value="">{{ $oldStateId ? 'Select City' : 'Select state first' }}</option>
+                                </select>
                             </div>
                             <div>
                                 <label class="mb-1 block text-sm font-semibold">Pincode</label>
@@ -233,7 +256,32 @@
         let step = 1;
 
         const syncSteps = () => {
-            panels.forEach((panel, idx) => panel.classList.toggle('hidden', idx + 1 !== step));
+            panels.forEach((panel, idx) => {
+                const panelStep = idx + 1;
+                const isActive = panelStep === step;
+
+                // Important for file uploads: when we reach step 3, keep step-2 panel in the DOM
+                // (do not apply `hidden` / display:none) so browser still includes file inputs.
+                const keepStep2Visible = step === 3 && panelStep === 2;
+
+                // Reset classes we may toggle below.
+                panel.classList.remove('hidden', 'invisible', 'opacity-0', 'h-0', 'overflow-hidden', 'pointer-events-none');
+
+                if (isActive) {
+                    // Active panel: show and allow interaction.
+                    return;
+                }
+
+                if (keepStep2Visible) {
+                    // Step 2 is kept in the DOM for file input submission, but collapsed to avoid layout overlap.
+                    panel.classList.add('opacity-0', 'h-0', 'overflow-hidden', 'pointer-events-none');
+                    return;
+                }
+
+                // Default inactive panels: fully hide.
+                panel.classList.add('hidden', 'pointer-events-none');
+            });
+
             pills.forEach((pill, idx) => {
                 pill.classList.toggle('opacity-60', idx + 1 > step);
             });
@@ -281,9 +329,96 @@
         const termsCheckbox = document.getElementById('termsCheckbox');
         const submitBusinessBtn = document.getElementById('submitBusinessBtn');
         if (termsCheckbox && submitBusinessBtn) {
-            termsCheckbox.addEventListener('change', () => {
+            const syncSubmitBtn = () => {
                 submitBusinessBtn.disabled = !termsCheckbox.checked;
+            };
+
+            termsCheckbox.addEventListener('change', syncSubmitBtn);
+            syncSubmitBtn(); // ensure correct state on first paint
+        }
+
+        const cfg = document.getElementById('locationConfig');
+        const loc = cfg
+            ? {
+                statesUrl: cfg.dataset.statesUrl,
+                citiesUrl: cfg.dataset.citiesUrl,
+                initialCountryId: cfg.dataset.initialCountryId || '',
+                initialStateId: cfg.dataset.initialStateId || '',
+                initialCityId: cfg.dataset.initialCityId || '',
+            }
+            : {};
+        const countrySelect = document.getElementById('countrySelect');
+        const stateSelect = document.getElementById('stateSelect');
+        const citySelect = document.getElementById('citySelect');
+
+        const resetStateOptions = () => {
+            stateSelect.innerHTML = '<option value="">Select State</option>';
+            stateSelect.disabled = true;
+        };
+        const resetCityOptions = () => {
+            citySelect.innerHTML = '<option value="">Select City</option>';
+            citySelect.disabled = true;
+        };
+
+        const loadStates = async (countryId, preselectStateId) => {
+            resetStateOptions();
+            resetCityOptions();
+            if (!countryId) return;
+            stateSelect.disabled = false;
+            try {
+                const res = await fetch(`${loc.statesUrl}?country_id=${encodeURIComponent(countryId)}`, { headers: { Accept: 'application/json' } });
+                if (!res.ok) throw new Error('Failed to load states');
+                const states = await res.json();
+                states.forEach((s) => {
+                    const opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.textContent = s.name;
+                    stateSelect.appendChild(opt);
+                });
+                if (preselectStateId) stateSelect.value = String(preselectStateId);
+            } catch (e) {
+                stateSelect.innerHTML = '<option value="">Could not load states</option>';
+                stateSelect.disabled = true;
+            }
+        };
+
+        const loadCities = async (stateId, preselectCityId) => {
+            resetCityOptions();
+            if (!stateId) return;
+            citySelect.disabled = false;
+            try {
+                const res = await fetch(`${loc.citiesUrl}?state_id=${encodeURIComponent(stateId)}`, { headers: { Accept: 'application/json' } });
+                if (!res.ok) throw new Error('Failed to load cities');
+                const cities = await res.json();
+                cities.forEach((c) => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = c.name;
+                    citySelect.appendChild(opt);
+                });
+                if (preselectCityId) citySelect.value = String(preselectCityId);
+            } catch (e) {
+                citySelect.innerHTML = '<option value="">Could not load cities</option>';
+                citySelect.disabled = true;
+            }
+        };
+
+        if (countrySelect && stateSelect && citySelect) {
+            countrySelect.addEventListener('change', async () => {
+                await loadStates(countrySelect.value, null);
             });
+            stateSelect.addEventListener('change', async () => {
+                await loadCities(stateSelect.value, null);
+            });
+
+            (async () => {
+                if (loc.initialCountryId) {
+                    await loadStates(loc.initialCountryId, loc.initialStateId);
+                    if (loc.initialStateId) {
+                        await loadCities(loc.initialStateId, loc.initialCityId);
+                    }
+                }
+            })();
         }
     </script>
 </body>

@@ -14,7 +14,7 @@
             <p class="mt-2 text-sm text-muted-foreground">
                 To keep this delivery focused, edit flow is not fully wired yet. You can create a new entry from the business form.
             </p>
-            <a href="{{ route('businesses.create') }}" class="mt-4 inline-flex rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">
+            <a href="{{ route('businesses.add') }}" class="mt-4 inline-flex rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground">
                 Open Business Form
             </a>
         </div>

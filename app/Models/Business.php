@@ -10,10 +10,11 @@ class Business extends Model
     protected $table = 'business';
 
     protected $fillable = [
-        'owner_first_name',
-        'owner_last_name',
         'contact_number',
         'business_name',
+        'owner_id',
+        'contact_person',
+        'hide_address',
         'business_email',
         'business_contact_number',
         'website',

@@ -5,7 +5,7 @@
         <div class="hidden items-center gap-6 md:flex">
             <a href="#" class="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">Categories</a>
             <a href="#" class="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">Write a Review</a>
-            <a href="{{ route('businesses.create') }}" class="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">For Business</a>
+            <a href="{{ route('businesses.add') }}" class="text-sm font-medium text-primary-foreground/80 transition-colors hover:text-primary-foreground">Add Business</a>
 
             @if (Route::has('login'))
                 @auth
@@ -30,7 +30,7 @@
         <div class="flex flex-col gap-3">
             <a href="#" class="text-sm font-medium text-primary-foreground/80">Categories</a>
             <a href="#" class="text-sm font-medium text-primary-foreground/80">Write a Review</a>
-            <a href="{{ route('businesses.create') }}" class="text-sm font-medium text-primary-foreground/80">For Business</a>
+            <a href="{{ route('businesses.add') }}" class="text-sm font-medium text-primary-foreground/80">Add Business</a>
 
             @if (Route::has('login'))
                 @auth
