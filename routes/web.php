@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\BusinessController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -10,6 +11,8 @@ Route::get('/', function () {
 Route::get('/business/techfix-pro', function () {
     return view('business.techfix-pro');
 });
+
+Route::resource('businesses', BusinessController::class);
 
 Route::get('/dashboard', function () {
     return view('dashboard');
